@@ -11,7 +11,7 @@ RUN apt-get update && \
         curl \
         openjdk-17-jdk \
         python3-pip && \
-    pip3 install docker-compose && \
+        docker-compose-plugin && \
     usermod -aG docker jenkins
 
 # Install Sonar Scanner
