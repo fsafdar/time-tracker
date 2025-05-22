@@ -2,16 +2,17 @@ FROM jenkins/jenkins:lts
 
 USER root
 
-# Install dependencies
+# Install system dependencies and Docker Compose (binary, not pip)
 RUN apt-get update && \
     apt-get install -y \
         docker.io \
         unzip \
         wget \
         curl \
-        openjdk-17-jdk \
-        python3-pip && \
-        docker-compose-plugin && \
+        openjdk-17-jdk && \
+    curl -SL https://github.com/docker/compose/releases/download/v2.24.7/docker-compose-linux-x86_64 -o /usr/local/bin/docker-compose && \
+    chmod +x /usr/local/bin/docker-compose && \
+    ln -s /usr/local/bin/docker-compose /usr/bin/docker-compose && \
     usermod -aG docker jenkins
 
 # Install Sonar Scanner
