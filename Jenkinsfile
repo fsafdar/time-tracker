@@ -58,7 +58,7 @@ pipeline {
       steps {
         sh '''
           echo "📦 Deploying with Docker Compose..."
-          docker compose -f $DOCKER_COMPOSE_FILE up -d
+          docker-compose -f $DOCKER_COMPOSE_FILE up -d
         '''
       }
     }
