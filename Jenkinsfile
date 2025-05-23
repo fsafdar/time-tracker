@@ -1,46 +1,76 @@
 pipeline {
-    agent any
+  agent any
 
-    environment {
-        SONARQUBE_ENV = 'MySonarQube'           // Match Jenkins SonarQube server name
-        IMAGE_NAME = 'yourdockerhub/cicd-project' // Replace with your Docker Hub username/repo
+  environment {
+    DOCKER_IMAGE = 'fsafdar10/nginx-demo:latest'
+    DOCKER_COMPOSE_FILE = 'docker-compose.yml'
+  }
+
+  stages {
+    stage('Clone Repository') {
+      steps {
+        git credentialsId: 'github-credentials', url: 'https://github.com/fsafdar/time-tracker.git'
+      }
     }
 
-    tools {
-        sonarQubeScanner 'SonarScanner' // This must match the name in Jenkins → Global Tool Config
+    stage('SonarQube Code Analysis') {
+      steps {
+        withSonarQubeEnv('LocalSonarQube') {
+          sh '''
+            echo "🔁 Waiting for SonarQube to be ready..."
+            for i in {1..30}; do
+              if curl -s http://sonarqube:9000/api/system/health | grep -q '"status":"UP"'; then
+                echo "✅ SonarQube is ready!"
+                break
+              fi
+              echo "SonarQube is starting... waiting 5 seconds"
+              sleep 5
+            done
+            sonar-scanner
+          '''
+        }
+      }
     }
 
-    stages {
-        stage('Clone Repository') {
-            steps {
-                git 'https://github.com/yourusername/your-repo.git' // Replace with your actual repo
-            }
-        }
-
-        stage('SonarQube Analysis') {
-            steps {
-                withSonarQubeEnv("${SONARQUBE_ENV}") {
-                    sh 'sonar-scanner'
-                }
-            }
-        }
-
-        stage('Build Docker Image') {
-            steps {
-                script {
-                    docker.build("${IMAGE_NAME}:latest")
-                }
-            }
-        }
-
-        // Optional stage for pushing to Docker Hub
-        // stage('Push Docker Image') {
-        //     steps {
-        //         withDockerRegistry([credentialsId: 'dockerhub', url: '']) {
-        //             docker.image("${IMAGE_NAME}:latest").push()
-        //         }
-        //     }
-        // }
+    stage('Build Docker Image') {
+      steps {
+        sh '''
+          echo "🔨 Building Docker image..."
+          docker build -t $DOCKER_IMAGE .
+        '''
+      }
     }
+
+    stage('Push to Docker Hub') {
+      steps {
+        withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+          sh '''
+            echo "📦 Logging into Docker Hub..."
+            echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
+            echo "🚀 Pushing Docker image to Docker Hub..."
+            docker push $DOCKER_IMAGE
+          '''
+        }
+      }
+    }
+
+    stage('Deploy with Docker Compose') {
+      steps {
+        sh '''
+          echo "📦 Deploying with Docker Compose..."
+          docker-compose -f $DOCKER_COMPOSE_FILE up -d
+        '''
+      }
+    }
+  }
+
+  post {
+    failure {
+      echo '🚨 Pipeline failed!'
+    }
+    success {
+      echo '✅ Pipeline completed successfully!'
+    }
+  }
 }
 
